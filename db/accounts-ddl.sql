@@ -1,6 +1,7 @@
 -- Data Definition Language (DDL) for accounts db
 CREATE TABLE accounts (
-    username VARCHAR(50) PRIMARY KEY,
+    user_id INTEGER AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50),
     email VARCHAR(254) DEFAULT NULL,
     password VARCHAR(128) NOT NULL,
     full_name VARCHAR(100) DEFAULT NULL,
