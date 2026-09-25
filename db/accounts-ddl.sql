@@ -5,7 +5,7 @@ CREATE TABLE accounts (
     password VARCHAR(128) NOT NULL,
     full_name VARCHAR(100) DEFAULT NULL,
     phone_number INTEGER(15) DEFAULT NULL,
-    created DATE
+    created TIMESTAMP
 );
 
 -- will add MFA fields later
