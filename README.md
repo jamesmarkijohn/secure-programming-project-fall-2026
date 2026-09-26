@@ -11,8 +11,8 @@ Node.js (v.24.21.0)
 
 Python 3.14.7
 
-2. Clone or download the repository.
+1. Clone or download the repository.
 
-3. Navigate to the root folder for the cloned repository, and run the following command:
+2. Navigate to the root folder for the cloned repository, and run the following command:
 
 `docker compose up -d`
