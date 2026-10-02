@@ -25,7 +25,6 @@ CREATE TRIGGER security_log_no_truncate
     FOR EACH STATEMENT EXECUTE FUNCTION security_log_reject_change();
 """
 
-# Lets `migrate audit 0001` undo this migration cleanly during development.
 DROP_TRIGGERS = """
 DROP TRIGGER IF EXISTS security_log_no_truncate ON security_log;
 DROP TRIGGER IF EXISTS security_log_no_update_delete ON security_log;

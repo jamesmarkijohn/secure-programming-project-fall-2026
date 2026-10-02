@@ -18,22 +18,22 @@ services:
 
   backend:
     build:
-      context: .                          # repo root, so the build can see database/
+      context: .
       dockerfile: src/backend/Dockerfile
     restart: unless-stopped
-    env_file: .env                        # passes every .env variable into the container
+    env_file: .env
     environment:
-      POSTGRES_HOST: db                   # reach the database by its service name
+      POSTGRES_HOST: db
     depends_on:
       db:
-        condition: service_healthy        # wait until PostgreSQL accepts connections
+        condition: service_healthy
     networks:
       - backend
-    # No "ports:" -- the backend will only be reachable through Caddy (Step 10).
-    # For testing before then, you can temporarily add:
+    # No "ports:" -- the backend will only be reachable through Caddy.
+    # For testing before Caddy is set up, can temporarily add:
     #   ports:
     #     - "127.0.0.1:8000:8000"
-    # (127.0.0.1 keeps it reachable from your machine only.) Remove it afterward.
+    # Remove loopback IP afterward.
 
 networks:
   backend:

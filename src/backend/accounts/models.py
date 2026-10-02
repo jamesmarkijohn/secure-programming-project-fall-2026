@@ -5,8 +5,8 @@ from django.db.models.functions import Lower, Now
 
 from .crypto import encrypt
 
-OUTSIDE_ROOM_NAME = "Outside"           # created by database/seed.sql
-SYSTEM_ACCOUNT_EMAIL = "system@invalid"  # created by the seed_system_account command
+OUTSIDE_ROOM_NAME = "Outside"
+SYSTEM_ACCOUNT_EMAIL = "system@invalid"
 
 
 class Role(models.TextChoices):
@@ -16,45 +16,32 @@ class Role(models.TextChoices):
 
 
 class AccountManager(BaseUserManager):
-    """The one sanctioned way to create accounts, so every account is created
-    the same way: normalized email, hashed password, fresh TOTP secret, and
-    starting location Outside."""
+    """The only way to create accounts, so every account is created
+    the same way: sanitized email, hashed password, TOTP secret, and
+    starting location of Outside."""
 
     def create_user(self, email, password, role=Role.GUEST, **extra_fields):
         if not email:
             raise ValueError("An email address is required")
-        # Imported here to avoid a circular import between the two apps.
         from gallery.models import GalleryRoom
 
         account = self.model(
             email=self.normalize_email(email).lower(),
             role=role,
             room=GalleryRoom.objects.get(name=OUTSIDE_ROOM_NAME),
-            # The secret must exist from the start (the column is NOT NULL).
-            # The user scans it into their authenticator app during enrollment.
             totp_secret=encrypt(pyotp.random_base32()),
             **extra_fields,
         )
-        account.set_password(password)  # Argon2id via PASSWORD_HASHERS
+        account.set_password(password)
         account.save(using=self._db)
         return account
 
 
 class Account(AbstractBaseUser):
-    """Matches the Account entity in the ERD.
-
-    AbstractBaseUser contributes `password` (the hash) and `last_login`, the
-    minimum Django's authentication system needs. PermissionsMixin is not used:
-    the `role` field is the only source of authorization decisions.
-    """
-
     user_id = models.AutoField(primary_key=True)
-    # unique=True is required by Django for the login field; the Lower()
-    # constraint below adds case-insensitivity on top of it.
     email = models.EmailField(max_length=254, unique=True)
-    # password: inherited from AbstractBaseUser, varchar(128)
-    full_name = models.BinaryField(null=True, blank=True)   # encrypted
-    phone = models.BinaryField(null=True, blank=True)       # encrypted
+    full_name = models.BinaryField(null=True, blank=True)
+    phone = models.BinaryField(null=True, blank=True) 
     created = models.DateTimeField(db_default=Now())
     role = models.CharField(max_length=8, choices=Role.choices, default=Role.GUEST)
     room = models.ForeignKey(
@@ -63,8 +50,8 @@ class Account(AbstractBaseUser):
         db_column="room_id",
         related_name="occupants",
     )
-    totp_secret = models.BinaryField()                       # encrypted, NOT NULL
-    deleted = models.DateTimeField(null=True, blank=True)    # set on pseudonymization
+    totp_secret = models.BinaryField()
+    deleted = models.DateTimeField(null=True, blank=True)
 
     objects = AccountManager()
 
@@ -75,7 +62,6 @@ class Account(AbstractBaseUser):
     class Meta:
         db_table = "accounts"
         constraints = [
-            # Case-insensitive: James@x.com and james@x.com can't both exist.
             models.UniqueConstraint(Lower("email"), name="accounts_email_unique"),
             models.CheckConstraint(
                 condition=models.Q(role__in=Role.values),
@@ -85,8 +71,6 @@ class Account(AbstractBaseUser):
 
     @property
     def is_active(self):
-        # Django's login machinery refuses inactive accounts. A pseudonymized
-        # (deleted) account must never authenticate again.
         return self.deleted is None
 
     def __str__(self):

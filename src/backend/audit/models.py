@@ -4,8 +4,7 @@ from django.db.models.functions import Now
 
 
 class SecurityLog(models.Model):
-    """Matches the Security entity. Append-only: a database trigger (see the
-    append_only_trigger migration) rejects UPDATE, DELETE, and TRUNCATE.
+    """Append-only: a database trigger rejects UPDATE, DELETE, and TRUNCATE.
 
     Events with no associated user are attributed to the system account.
     """

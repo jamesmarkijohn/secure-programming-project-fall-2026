@@ -15,7 +15,5 @@ class Command(BaseCommand):
         if Account.objects.filter(email=SYSTEM_ACCOUNT_EMAIL).exists():
             self.stdout.write("System account already exists.")
             return
-        # password=None makes Django store an *unusable* password: no input
-        # will ever match it, so this account can never log in.
         Account.objects.create_user(SYSTEM_ACCOUNT_EMAIL, password=None)
         self.stdout.write(self.style.SUCCESS("System account created."))

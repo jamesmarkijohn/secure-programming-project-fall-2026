@@ -5,7 +5,7 @@ from django.db.models.functions import Now
 
 
 class GalleryRoom(models.Model):
-    """Matches the Gallery Rooms entity. Includes the special 'Outside' room."""
+    """Matches the Gallery Rooms entity. Includes the special Outside room."""
 
     room_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=50, unique=True)
@@ -18,7 +18,7 @@ class GalleryRoom(models.Model):
 
 
 class AdjacentRoom(models.Model):
-    """Junction table: one row per connection between two rooms.
+    """Junction table.
 
     Each connection is stored once, with the smaller room_id in room_a.
     Code that inserts rows must order the pair; code that checks adjacency
@@ -43,7 +43,7 @@ class AdjacentRoom(models.Model):
 
 
 class MovementEvent(models.Model):
-    """Matches the Movement entity: one move from start_room to end_room.
+    """Matches Movement entity.
 
     Entering the gallery is Outside -> an entrance room; leaving is a
     room -> Outside. Rules the database can't check (adjacency, start_room
@@ -51,8 +51,6 @@ class MovementEvent(models.Model):
     """
 
     event_id = models.AutoField(primary_key=True)
-    # By default Django names a ForeignKey's column "<field>_id". db_column
-    # keeps the names from the ERD instead.
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,

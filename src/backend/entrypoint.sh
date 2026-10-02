@@ -8,9 +8,10 @@ if [ "$#" -gt 0 ]; then
     exec "$@"
 fi
 
-python manage.py migrate --noinput     # create/update tables
-python manage.py load_seed             # rooms and connections
-python manage.py seed_system_account   # account for user-less security events
+python manage.py migrate --noinput
+python manage.py load_seed
+python manage.py seed_system_account
 
-# Gunicorn is a production web server; Django's runserver is for development only.
+# Gunicorn is a production web server, needed since Django's runserver
+# is for development only.
 exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
