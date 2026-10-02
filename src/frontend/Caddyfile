@@ -1,0 +1,14 @@
+{
+	local_certs
+	skip_install_trust
+}
+
+localhost {
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		respond "Frontend not built yet" 404
+	}
+}

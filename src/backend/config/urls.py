@@ -1,3 +1,7 @@
-# API routes are added here.
-# The default admin route was removed along with django.contrib.admin.
-urlpatterns = []
+from django.urls import path
+
+from . import views
+
+urlpatterns = [
+    path("api/health/", views.health),
+]

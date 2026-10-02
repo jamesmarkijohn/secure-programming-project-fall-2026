@@ -29,15 +29,32 @@ services:
         condition: service_healthy
     networks:
       - backend
+      - frontend
     # No "ports:" -- the backend will only be reachable through Caddy.
     # For testing before Caddy is set up, can temporarily add:
     #   ports:
     #     - "127.0.0.1:8000:8000"
     # Remove loopback IP afterward.
 
+  web:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./src/frontend/Caddyfile:/etc/caddy/Caddyfile:ro,Z
+      - caddy_data:/data
+    depends_on:
+      - backend
+    networks:
+      - frontend
+
 networks:
   backend:
     internal: true
+  frontend:
 
 volumes:
   pgdata:
+  caddy_data:
