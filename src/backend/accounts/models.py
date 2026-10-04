@@ -52,6 +52,8 @@ class Account(AbstractBaseUser):
     )
     totp_secret = models.BinaryField()
     deleted = models.DateTimeField(null=True, blank=True)
+    failed_login_attempts = models.PositiveIntegerField(default=0)
+    locked_until = models.DateTimeField(null=True, blank=True)
 
     objects = AccountManager()
 
