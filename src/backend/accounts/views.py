@@ -137,13 +137,22 @@ def login_view(request):
     # Give the user 60 seconds to finish MFA
     request.session.set_expiry(60)
 
-    return JsonResponse(
-        {
-            "message": "Password verified. MFA required.",
-            "mfa_required": True,
-        },
-        status=200,
-    )
+    response = {
+        "message": "Password verified. MFA required.",
+        "mfa_required": True,
+    }
+
+    if not user.mfa_enrolled:
+        secret = decrypt(user.totp_secret)
+        response["mfa_setup"] = {
+            "secret": secret,
+            "uri": pyotp.TOTP(secret).provisioning_uri(
+                name=user.email, issuer_name="Secure Art Gallery"
+            ),
+        }
+
+    return JsonResponse(response, status=200)
+
 
 
 @require_POST
@@ -206,6 +215,9 @@ def verify_mfa_view(request):
         )
 
     # MFA passed, so the user can now log in
+    if not user.mfa_enrolled:
+        user.mfa_enrolled = True
+        user.save(update_fields=["mfa_enrolled"])
     login(request, user)
 
     # Change the temporary session to the normal 8 hour session
