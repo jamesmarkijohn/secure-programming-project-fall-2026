@@ -62,7 +62,7 @@ def login_view(request):
     email = data.get("email")
     password = data.get("password")
 
-    if not email or not password:
+    if not isinstance(email, str) or not isinstance(password, str) or not email or not password:
         return JsonResponse(
             {"error": "Email and password are required."},
             status=400,
