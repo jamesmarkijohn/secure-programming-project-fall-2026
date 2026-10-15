@@ -13,6 +13,11 @@ from django.views.decorators.http import require_GET, require_POST
 from .crypto import decrypt
 from .models import Account
 
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+from django.db import IntegrityError
+
 
 # Checks if the user is logged in and has the right role
 def role_required(*allowed_roles):
@@ -46,6 +51,43 @@ def csrf_view(request):
         {"message": "CSRF cookie set."},
         status=200,
     )
+
+
+@require_POST
+def register_view(request):
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({"error": "Invalid request."}, status=400)
+
+    if not isinstance(data, dict):
+        return JsonResponse({"error": "Invalid request."}, status=400)
+
+    email = data.get("email")
+    password = data.get("password")
+
+    if not isinstance(email, str) or not isinstance(password, str) or not email or not password:
+        return JsonResponse({"error": "Email and password are required."}, status=400)
+
+    email = email.strip().lower()
+    try:
+        if len(email) > 254:
+            raise ValidationError("too long")
+        validate_email(email)
+    except ValidationError:
+        return JsonResponse({"error": "Enter a valid email address."}, status=400)
+
+    try:
+        validate_password(password, user=Account(email=email))
+    except ValidationError as exc:
+        return JsonResponse({"error": " ".join(exc.messages)}, status=400)
+
+    try:
+        Account.objects.create_user(email, password)
+    except IntegrityError:
+        return JsonResponse({"error": "An account with that email already exists."}, status=400)
+
+    return JsonResponse({"message": "Account created. Please log in."}, status=201)
 
 
 @require_POST
