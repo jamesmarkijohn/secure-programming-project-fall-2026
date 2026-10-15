@@ -37,13 +37,14 @@ services:
     # Remove loopback IP afterward.
 
   web:
-    image: caddy:2-alpine
+    build:
+      context: .
+      dockerfile: src/frontend/Dockerfile
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./src/frontend/Caddyfile:/etc/caddy/Caddyfile:ro,Z
       - caddy_data:/data
     depends_on:
       - backend
