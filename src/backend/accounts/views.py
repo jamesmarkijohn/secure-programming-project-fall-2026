@@ -176,8 +176,8 @@ def login_view(request):
     request.session["pre_mfa_authenticated"] = True
     request.session["failed_mfa_attempts"] = 0
 
-    # Give the user 60 seconds to finish MFA
-    request.session.set_expiry(60)
+    # Give the user 60 seconds to finish MFA, or 5 minutes if they need to enroll for the first time
+    request.session.set_expiry(300 if not user.mfa_enrolled else 60)
 
     response = {
         "message": "Password verified. MFA required.",

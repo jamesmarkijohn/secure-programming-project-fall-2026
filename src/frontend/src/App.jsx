@@ -1,59 +1,36 @@
 import { useState } from "react";
-
-function getCookie(name) {
-  const match = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
-  return match ? decodeURIComponent(match[1]) : "";
-}
+import Login from "./Login.jsx";
+import Register from "./Register.jsx";
+import { apiPost } from "./api.js";
 
 export default function App() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [user, setUser] = useState(null);
+  const [view, setView] = useState("login");
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    setBusy(true);
-    setMessage("");
+  async function logout() {
     try {
-      await fetch("/api/auth/csrf/", { credentials: "same-origin" });
-      const response = await fetch("/api/auth/register/", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": getCookie("csrftoken"),
-        },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await response.json();
-      setMessage(data.message || data.error);
-      if (response.ok) setPassword("");
-    } catch {
-      setMessage("Could not reach the server.");
-    } finally {
-      setBusy(false);
-    }
+      await apiPost("/api/auth/logout/", {});
+    } catch { }
+    setUser(null);
+    setView("login");
+  }
+
+  if (user) {
+    return (
+      <main>
+        <h1>Welcome</h1>
+        <p>Signed in as {user.email} ({user.role}).</p>
+        <button type="button" onClick={logout}>Sign out</button>
+      </main>
+    );
   }
 
   return (
     <main>
-      <h1>Art Gallery</h1>
-      <h2>Create an account</h2>
-      <form onSubmit={handleSubmit}>
-        <label>
-          Email
-          <input type="email" autoComplete="email" maxLength={254} required
-            value={email} onChange={(e) => setEmail(e.target.value)} />
-        </label><br></br><br></br>
-        <label>
-          Password
-          <input type="password" autoComplete="new-password" required
-            value={password} onChange={(e) => setPassword(e.target.value)} />
-        </label><br></br><br></br>
-        <button type="submit" disabled={busy}>Create account</button>
-      </form>
-      {message && <p role="status">{message}</p>}
+      {view === "login" ? <Login onLoggedIn={setUser} /> : <Register />}
+      <button type="button" onClick={() => setView(view === "login" ? "register" : "login")}>
+        {view === "login" ? "Need an account? Create one" : "Have an account? Sign in"}
+      </button>
     </main>
   );
 }
