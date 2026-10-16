@@ -22,10 +22,16 @@ def env(name, default=None):
 
 
 # Security settings
-SECRET_KEY = env("DJANGO_SECRET_KEY")              # signs sessions and CSRF tokens
-DEBUG = env("DJANGO_DEBUG", "0") == "1"            # off unless explicitly enabled
+SECRET_KEY = env("DJANGO_SECRET_KEY")
+DEBUG = env("DJANGO_DEBUG", "0") == "1"
 ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS", "localhost").split(",")
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Strict"
+SESSION_SAVE_EVERY_REQUEST = True
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = "Strict"
 
 # Key for field-level encryption
 FIELD_ENCRYPTION_KEY = env("FIELD_ENCRYPTION_KEY")
