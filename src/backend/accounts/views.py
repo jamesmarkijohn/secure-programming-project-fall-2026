@@ -53,6 +53,17 @@ def csrf_view(request):
     )
 
 
+@require_GET
+def me_view(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+
+    return JsonResponse(
+        {"email": request.user.email, "role": request.user.role},
+        status=200,
+    )
+
+
 @require_POST
 def register_view(request):
     try:
