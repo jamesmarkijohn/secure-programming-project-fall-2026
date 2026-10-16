@@ -2,10 +2,23 @@ import { useState } from "react";
 import Login from "./Login.jsx";
 import Register from "./Register.jsx";
 import { apiPost } from "./api.js";
+import { useEffect } from "react";
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState("login");
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/auth/me/", { credentials: "same-origin" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data) setUser(data);
+      })
+      .catch(() => {})
+      .finally(() => setChecking(false));
+  }, []);
+  if (checking) return null;
 
   async function logout() {
     try {
