@@ -9,6 +9,7 @@ class GalleryRoom(models.Model):
 
     room_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=50, unique=True)
+    is_restricted = models.BooleanField(default=False)
 
     class Meta:
         db_table = "gallery_rooms"
