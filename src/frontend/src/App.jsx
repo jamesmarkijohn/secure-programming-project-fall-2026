@@ -35,7 +35,7 @@ export default function App() {
         <h1>Welcome</h1>
         <p>Signed in as {user.email} ({user.role}).</p>
         <button type="button" onClick={logout}>Sign out</button>
-        <GalleryMap />
+        <GalleryMap role={user.role} />
       </main>
     );
   }

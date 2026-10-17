@@ -6,7 +6,8 @@ from django.views.decorators.http import require_GET, require_POST
 from accounts.views import role_required
 
 from .services import MovementError, record_move
-
+from accounts.models import OUTSIDE_ROOM_NAME, SYSTEM_ACCOUNT_EMAIL, Account
+from .models import GalleryRoom
 
 def _valid_id(value):
     return isinstance(value, int) and not isinstance(value, bool) and value > 0
@@ -49,3 +50,24 @@ def record_move_view(request):
 @role_required("GUEST", "EMPLOYEE", "ADMIN")
 def my_location_view(request):
     return JsonResponse({"room": request.user.room.name}, status=200)
+
+
+@require_GET
+@role_required("EMPLOYEE", "ADMIN")
+def occupancy_view(request):
+    rooms = {
+        room.name: []
+        for room in GalleryRoom.objects.exclude(name=OUTSIDE_ROOM_NAME).order_by("name")
+    }
+    people = (
+        Account.objects.filter(deleted__isnull=True)
+        .exclude(email=SYSTEM_ACCOUNT_EMAIL)
+        .exclude(room__name=OUTSIDE_ROOM_NAME)
+        .select_related("room")
+        .order_by("email")
+    )
+    for person in people:
+        rooms[person.room.name].append(
+            {"user_id": person.pk, "email": person.email, "role": person.role}
+        )
+    return JsonResponse({"rooms": rooms}, status=200)

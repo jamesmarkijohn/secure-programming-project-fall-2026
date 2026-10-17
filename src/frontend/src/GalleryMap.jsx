@@ -14,8 +14,10 @@ const ROOMS = [
   { name: "Staff Offices",   x: 571, y: 441, w: 176, h: 128, restricted: true },
 ];
 
-export default function GalleryMap() {
+export default function GalleryMap({ role }) {
+  const isStaff = role === "EMPLOYEE" || role === "ADMIN";
   const [current, setCurrent] = useState(null);
+  const [occupancy, setOccupancy] = useState(null); // staff only
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -23,7 +25,14 @@ export default function GalleryMap() {
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((data) => setCurrent(data.room))
       .catch(() => setError("Could not load your location."));
-  }, []);
+
+    if (isStaff) {
+      fetch("/api/gallery/occupancy/", { credentials: "same-origin" })
+        .then((r) => (r.ok ? r.json() : Promise.reject()))
+        .then((data) => setOccupancy(data.rooms))
+        .catch(() => setError("Could not load occupancy."));
+    }
+  }, [isStaff]);
 
   return (
     <section>
@@ -36,8 +45,9 @@ export default function GalleryMap() {
         {ROOMS.map((room) => {
           const here = room.name === current;
           const lines = room.label || [room.name];
+          const count = occupancy ? (occupancy[room.name] || []).length : null;
           const cx = room.x + room.w / 2;
-          const cy = room.y + room.h / 2 - ((lines.length - 1) * 9);
+          const cy = room.y + room.h / 2 - ((lines.length - 1) * 9) - (count !== null ? 9 : 0);
           return (
             <g key={room.name}>
               <rect x={room.x} y={room.y} width={room.w} height={room.h}
@@ -49,12 +59,32 @@ export default function GalleryMap() {
                 {lines.map((line, i) => (
                   <tspan key={line} x={cx} dy={i === 0 ? 0 : 18}>{line}</tspan>
                 ))}
+                {count !== null && (
+                  <tspan x={cx} dy={20} fontSize="13" fill="#555">
+                    {count} {count === 1 ? "person" : "people"}
+                  </tspan>
+                )}
               </text>
             </g>
           );
         })}
       </svg>
       <p>Dashed grey rooms are staff-only.</p>
+
+      {occupancy && (
+        <div>
+          <h3>Who is where</h3>
+          <ul>
+            {Object.entries(occupancy)
+              .filter(([, people]) => people.length > 0)
+              .map(([roomName, people]) => (
+                <li key={roomName}>
+                  {roomName}: {people.map((p) => `${p.email} (#${p.user_id}, ${p.role})`).join(", ")}
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }
