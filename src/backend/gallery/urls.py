@@ -4,4 +4,5 @@ from . import views
 
 urlpatterns = [
     path("moves/", views.record_move_view, name="record_move"),
+    path("my-location/", views.my_location_view, name="my_location"),
 ]

@@ -1,7 +1,7 @@
 import json
 
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from accounts.views import role_required
 
@@ -43,3 +43,9 @@ def record_move_view(request):
         },
         status=201,
     )
+
+
+@require_GET
+@role_required("GUEST", "EMPLOYEE", "ADMIN")
+def my_location_view(request):
+    return JsonResponse({"room": request.user.room.name}, status=200)

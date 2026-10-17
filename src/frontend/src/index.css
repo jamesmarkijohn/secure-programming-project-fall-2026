@@ -109,3 +109,24 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+:root {
+  color-scheme: light;
+  color: #213547;
+  background-color: #f5f5f2;
+}
+
+body {
+  background-color: #f5f5f2;
+}
+
+button {
+  background-color: #ffffff;
+  color: #213547;
+  border: 1px solid #c8c8c8;
+}
+
+#root,
+#root * {
+  color: #111111;
+}
