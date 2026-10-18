@@ -130,3 +130,11 @@ button {
 #root * {
   color: #111111;
 }
+
+:root {
+  --code-bg: #f4f3ec;
+  --text: #111111;
+  --text-h: #111111;
+  --bg: #f5f5f2;
+  --border: #e5e4e7;
+}

@@ -6,8 +6,8 @@ from django.contrib.auth import login, logout
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.views.decorators.http import require_GET, require_POST
-from .crypto import decrypt
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
+from .crypto import decrypt, encrypt
 from .models import Account
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
@@ -15,6 +15,8 @@ from django.core.validators import validate_email
 from django.db import IntegrityError
 from audit.utils import log_event
 from audit.ratelimit import over_limit
+from .services import AccountError, pseudonymize_account
+from .profile import ProfileError, clean_full_name, clean_phone
 
 
 # The calls in this file go through Django ORM rather than through raw SQL queries
@@ -109,8 +111,17 @@ def register_view(request):
     except ValidationError as exc:
         return JsonResponse({"error": " ".join(exc.messages)}, status=400)
 
+    # Optional personal details, validated before encryption
     try:
-        account = Account.objects.create_user(email, password)
+        full_name = clean_full_name(data.get("full_name"))
+        phone = clean_phone(data.get("phone"))
+    except ProfileError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+
+    try:
+        account = Account.objects.create_user(
+            email, password, full_name=encrypt(full_name), phone=encrypt(phone)
+        )
     except IntegrityError:
         return JsonResponse({"error": "An account with that email already exists."}, status=400)
 
@@ -339,5 +350,81 @@ def logout_view(request):
 def admin_test_view(request):
     return JsonResponse(
         {"message": "Admin access granted."},
+        status=200,
+    )
+
+
+# Deletes the account of the logged in user
+@require_POST
+@role_required("GUEST")
+def delete_account_view(request):
+    if over_limit(request, scope="login"):
+        return JsonResponse(
+            {"error": "Too many attempts. Try again in a few minutes."},
+            status=429,
+        )
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({"error": "Invalid request."}, status=400)
+
+    if not isinstance(data, dict):
+        return JsonResponse({"error": "Invalid request."}, status=400)
+
+    password = data.get("password")
+    if not isinstance(password, str) or not password:
+        return JsonResponse({"error": "Password is required."}, status=400)
+
+    if not request.user.check_password(password):
+        log_event(request, "ACCOUNT_DELETE_FAILED", user=request.user, details="wrong password")
+        return JsonResponse({"error": "Incorrect password."}, status=401)
+
+    try:
+        account = pseudonymize_account(request.user.pk)
+    except AccountError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+
+    log_event(request, "ACCOUNT_DELETED", user=account)
+    logout(request)
+    return JsonResponse({"message": "Your account has been deleted."}, status=200)
+
+
+# View and update the profile of the logged in user
+@require_http_methods(["GET", "POST"])
+@role_required("GUEST", "EMPLOYEE", "ADMIN")
+def profile_view(request):
+    user = request.user
+
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return JsonResponse({"error": "Invalid request."}, status=400)
+
+        if not isinstance(data, dict):
+            return JsonResponse({"error": "Invalid request."}, status=400)
+
+        try:
+            changed = []
+            if "full_name" in data:
+                user.full_name = encrypt(clean_full_name(data["full_name"]))
+                changed.append("full_name")
+            if "phone" in data:
+                user.phone = encrypt(clean_phone(data["phone"]))
+                changed.append("phone")
+        except ProfileError as exc:
+            return JsonResponse({"error": str(exc)}, status=400)
+
+        if changed:
+            user.save(update_fields=changed)
+            log_event(request, "PROFILE_UPDATED", user=user, details="fields=" + ",".join(changed))
+
+    return JsonResponse(
+        {
+            "email": user.email,
+            "full_name": decrypt(user.full_name),
+            "phone": decrypt(user.phone),
+        },
         status=200,
     )

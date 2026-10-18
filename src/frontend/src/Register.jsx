@@ -7,13 +7,17 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
 
   async function handleSubmit(event) {
     event.preventDefault();
     setBusy(true);
     setMessage("");
     try {
-      const { ok, data } = await apiPost("/api/auth/register/", { email, password });
+      const { ok, data } = await apiPost("/api/auth/register/", {
+        email, password, full_name: fullName, phone,
+      });
       setMessage(data.message || data.error);
       if (ok) setPassword("");
     } catch {
@@ -39,6 +43,16 @@ export default function Register() {
           <input type="password" autoComplete="new-password" required
             value={password} onChange={(e) => setPassword(e.target.value)} />
         </label><br></br><br></br>
+        <label>
+          Full name (optional)
+          <input type="text" autoComplete="name" maxLength={100}
+            value={fullName} onChange={(e) => setFullName(e.target.value)} />
+        </label>
+        <label>
+          Phone number (optional)
+          <input type="tel" autoComplete="tel" maxLength={25}
+            value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </label>
         <button type="submit" disabled={busy}>Create account</button>
       </form>
       {message && <p role="status">{message}</p>}
