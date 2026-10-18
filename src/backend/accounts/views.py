@@ -97,10 +97,11 @@ def register_view(request):
         return JsonResponse({"error": " ".join(exc.messages)}, status=400)
 
     try:
-        Account.objects.create_user(email, password)
+        account = Account.objects.create_user(email, password)
     except IntegrityError:
         return JsonResponse({"error": "An account with that email already exists."}, status=400)
 
+    log_event(request, "ACCOUNT_CREATED", user=account)
     return JsonResponse({"message": "Account created. Please log in."}, status=201)
 
 
