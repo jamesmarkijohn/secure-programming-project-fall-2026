@@ -19,3 +19,16 @@ class SecurityLog(models.Model):
     class Meta:
         db_table = "security_log"
         indexes = [models.Index(fields=["event_time"], name="security_log_time")]
+
+
+# Model to store rate limit hits for various scopes (e.g., login attempts, MFA attempts)
+class RateLimitHit(models.Model):
+    ip_address = models.GenericIPAddressField()
+    scope = models.CharField(max_length=20)
+    created = models.DateTimeField(db_default=Now())
+
+    class Meta:
+        db_table = "rate_limit_hits"
+        indexes = [
+            models.Index(fields=["scope", "ip_address", "created"], name="rate_limit_lookup"),
+        ]

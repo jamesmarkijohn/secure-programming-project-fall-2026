@@ -14,6 +14,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import IntegrityError
 from audit.utils import log_event
+from audit.ratelimit import over_limit
 
 
 # The calls in this file go through Django ORM rather than through raw SQL queries
@@ -107,6 +108,13 @@ def register_view(request):
 
 @require_POST
 def login_view(request):
+    # Check if the client has exceeded the rate limit for login attempts
+    if over_limit(request, scope="login"):
+        return JsonResponse(
+            {"error": "Too many attempts. Try again in a few minutes."},
+            status=429,
+        )
+    
     # Get the email and password from the request
     try:
         data = json.loads(request.body)
@@ -216,8 +224,16 @@ def login_view(request):
 
 
 
+# Verifies the MFA code and logs in the user if correct
 @require_POST
 def verify_mfa_view(request):
+    # Check if the client has exceeded the rate limit for MFA attempts
+    if over_limit(request, scope="mfa"):
+        return JsonResponse(
+            {"error": "Too many attempts. Try again in a few minutes."},
+            status=429,
+        )
+
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, UnicodeDecodeError):
