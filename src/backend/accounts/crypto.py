@@ -3,7 +3,7 @@ Field-level encryption for sensitive columns (names, phone numbers, TOTP
 secrets, security log details, etc.).
 
 Uses Fernet from cryptography library: AES-128-CBC for confidentiality
-plus HMAC-SHA256 for integrity, so a tampered ciphertext is rejected. 
+plus HMAC-SHA256 for integrity, so tampered ciphertext is rejected. 
 The key comes from FIELD_ENCRYPTION_KEY in .env.
 """
 from cryptography.fernet import Fernet

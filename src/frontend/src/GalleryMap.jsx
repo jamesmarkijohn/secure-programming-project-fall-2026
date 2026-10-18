@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+//SVG map of the gallery
 const ROOMS = [
   { name: "Storage",         x: 65,  y: 15,  w: 240, h: 160, restricted: true },
   { name: "Portrait Hall",   x: 341, y: 15,  w: 90,  h: 246, label: ["Portrait", "Hall"] },
@@ -14,10 +15,11 @@ const ROOMS = [
   { name: "Staff Offices",   x: 571, y: 441, w: 176, h: 128, restricted: true },
 ];
 
+//GalleryMap component, displaying the gallery map and occupancy information based on user role
 export default function GalleryMap({ role }) {
   const isStaff = role === "EMPLOYEE" || role === "ADMIN";
   const [current, setCurrent] = useState(null);
-  const [occupancy, setOccupancy] = useState(null); // staff only
+  const [occupancy, setOccupancy] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -34,6 +36,7 @@ export default function GalleryMap({ role }) {
     }
   }, [isStaff]);
 
+  //Render the gallery map and occupancy information
   return (
     <section>
       <h2>Gallery map</h2>

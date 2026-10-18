@@ -5,6 +5,8 @@ from django.db.models.functions import Lower, Now
 
 from .crypto import encrypt
 
+from django.utils.crypto import salted_hmac
+
 OUTSIDE_ROOM_NAME = "Outside"
 SYSTEM_ACCOUNT_EMAIL = "system@invalid"
 
@@ -15,6 +17,9 @@ class Role(models.TextChoices):
     ADMIN = "ADMIN", "Administrator"
 
 
+# AccountManager is responsible for creating accounts in a consistent manner
+# Ensures that necessary fields are set and that the email is normalized and lowercased
+# Also generates a TOTP secret for two-factor authentication and sets the starting location of the account to the "Outside" room
 class AccountManager(BaseUserManager):
     """The only way to create accounts, so every account is created
     the same way: sanitized email, hashed password, TOTP secret, and
@@ -37,6 +42,8 @@ class AccountManager(BaseUserManager):
         return account
 
 
+# The Account model represents a user account in the system
+# It includes fields for email, full name, phone number, role, room, TOTP secret for MFA, etc.
 class Account(AbstractBaseUser):
     user_id = models.AutoField(primary_key=True)
     email = models.EmailField(max_length=254, unique=True)
@@ -62,6 +69,7 @@ class Account(AbstractBaseUser):
     EMAIL_FIELD = "email"
     REQUIRED_FIELDS = []
 
+    # Defines the database table name and constraints for the Account model
     class Meta:
         db_table = "accounts"
         constraints = [
@@ -75,6 +83,11 @@ class Account(AbstractBaseUser):
     @property
     def is_active(self):
         return self.deleted is None
+
+    def _get_session_auth_hash(self, secret=None):
+        key_salt = "accounts.Account.session_auth_hash"
+        value = f"{self.password}|{self.role}|{bytes(self.totp_secret).hex()}"
+        return salted_hmac(key_salt, value, secret=secret, algorithm="sha256").hexdigest()
 
     def __str__(self):
         return f"Account {self.user_id} ({self.role})"

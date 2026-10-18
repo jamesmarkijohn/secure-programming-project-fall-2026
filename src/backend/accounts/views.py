@@ -1,22 +1,38 @@
 import json
 from datetime import timedelta
 from functools import wraps
-
 import pyotp
-
 from django.contrib.auth import login, logout
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.views.decorators.http import require_GET, require_POST
-
-from .crypto import decrypt
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
+from .crypto import decrypt, encrypt
 from .models import Account
-
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import IntegrityError
+from audit.utils import log_event
+from audit.ratelimit import over_limit
+from .services import AccountError, pseudonymize_account
+from .profile import ProfileError, clean_full_name, clean_phone
+
+
+# The calls in this file go through Django ORM rather than through raw SQL queries
+# THis mitigates SQL injection attacks, as the ORM automatically escapes user input
+
+
+# One message for every failed sign-in
+GENERIC_LOGIN_ERROR = (
+    "Invalid email or password. After repeated failed attempts, "
+    "sign-in is restricted for a few minutes."
+)
+
+
+# Equalize the timing of password checks
+def _equalize_timing(password):
+    Account().set_password(password)
 
 
 # Checks if the user is logged in and has the right role
@@ -53,6 +69,7 @@ def csrf_view(request):
     )
 
 
+# Returns the email and role of the logged in user
 @require_GET
 def me_view(request):
     if not request.user.is_authenticated:
@@ -64,6 +81,7 @@ def me_view(request):
     )
 
 
+# Registers a new user account
 @require_POST
 def register_view(request):
     try:
@@ -93,16 +111,33 @@ def register_view(request):
     except ValidationError as exc:
         return JsonResponse({"error": " ".join(exc.messages)}, status=400)
 
+    # Optional personal details, validated before encryption
     try:
-        Account.objects.create_user(email, password)
+        full_name = clean_full_name(data.get("full_name"))
+        phone = clean_phone(data.get("phone"))
+    except ProfileError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+
+    try:
+        account = Account.objects.create_user(
+            email, password, full_name=encrypt(full_name), phone=encrypt(phone)
+        )
     except IntegrityError:
         return JsonResponse({"error": "An account with that email already exists."}, status=400)
 
+    log_event(request, "ACCOUNT_CREATED", user=account)
     return JsonResponse({"message": "Account created. Please log in."}, status=201)
 
 
 @require_POST
 def login_view(request):
+    # Check if the client has exceeded the rate limit for login attempts
+    if over_limit(request, scope="login"):
+        return JsonResponse(
+            {"error": "Too many attempts. Try again in a few minutes."},
+            status=429,
+        )
+    
     # Get the email and password from the request
     try:
         data = json.loads(request.body)
@@ -125,18 +160,16 @@ def login_view(request):
     user = Account.objects.filter(email=email.lower()).first()
 
     if user is None or not user.is_active:
-        return JsonResponse(
-            {"error": "Invalid email or password."},
-            status=401,
-        )
+        _equalize_timing(password)
+        log_event(request, "LOGIN_FAILURE", details=f"unknown email={email.lower()[:254]}")
+        return JsonResponse({"error": GENERIC_LOGIN_ERROR}, status=401)
 
     # Check if the account is locked
     if user.locked_until is not None:
         if timezone.now() < user.locked_until:
-            return JsonResponse(
-                {"error": "Account temporarily locked. Try again later."},
-                status=403,
-            )
+            log_event(request, "LOGIN_BLOCKED_LOCKED", user=user)
+            _equalize_timing(password)
+            return JsonResponse({"error": GENERIC_LOGIN_ERROR}, status=401)
 
         # Reset the lock after the lock time ends
         user.locked_until = None
@@ -156,23 +189,14 @@ def login_view(request):
             user.save(
                 update_fields=["failed_login_attempts", "locked_until"]
             )
+            log_event(request, "ACCOUNT_LOCKED", user=user)
 
-            return JsonResponse(
-                {
-                    "error": (
-                        "Account temporarily locked. "
-                        "Try again later."
-                    )
-                },
-                status=403,
-            )
-
+            return JsonResponse({"error": GENERIC_LOGIN_ERROR}, status=401)
+        
+        log_event(request, "LOGIN_FAILURE", user=user, details="wrong password")
         user.save(update_fields=["failed_login_attempts"])
 
-        return JsonResponse(
-            {"error": "Invalid email or password."},
-            status=401,
-        )
+        return JsonResponse({"error": GENERIC_LOGIN_ERROR}, status=401)
 
     # Reset failed attempts after the correct password
     if user.failed_login_attempts != 0 or user.locked_until is not None:
@@ -208,8 +232,16 @@ def login_view(request):
 
 
 
+# Verifies the MFA code and logs in the user if correct
 @require_POST
 def verify_mfa_view(request):
+    # Check if the client has exceeded the rate limit for MFA attempts
+    if over_limit(request, scope="mfa"):
+        return JsonResponse(
+            {"error": "Too many attempts. Try again in a few minutes."},
+            status=429,
+        )
+
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, UnicodeDecodeError):
@@ -242,12 +274,14 @@ def verify_mfa_view(request):
     totp = pyotp.TOTP(secret)
 
     if not totp.verify(str(code), valid_window=1):
+        log_event(request, "MFA_FAILURE", user=user)
         failed_mfa_attempts = (
             request.session.get("failed_mfa_attempts", 0) + 1
         )
 
         # Make the user log in again after 5 wrong MFA codes
         if failed_mfa_attempts >= 5:
+            log_event(request, "MFA_ATTEMPTS_EXCEEDED", user=user)
             request.session.flush()
 
             return JsonResponse(
@@ -271,7 +305,9 @@ def verify_mfa_view(request):
     if not user.mfa_enrolled:
         user.mfa_enrolled = True
         user.save(update_fields=["mfa_enrolled"])
+        log_event(request, "MFA_ENROLLED", user=user)
     login(request, user)
+    log_event(request, "LOGIN_SUCCESS", user=user)
 
     # Change the temporary session to the normal 8 hour session
     request.session.set_expiry(8 * 60 * 60)
@@ -290,6 +326,7 @@ def verify_mfa_view(request):
     )
 
 
+# Logs out the user
 @require_POST
 def logout_view(request):
     # Only logged in users can log out
@@ -299,6 +336,7 @@ def logout_view(request):
             status=401,
         )
 
+    log_event(request, "LOGOUT", user=request.user)
     logout(request)
 
     return JsonResponse(
@@ -312,5 +350,81 @@ def logout_view(request):
 def admin_test_view(request):
     return JsonResponse(
         {"message": "Admin access granted."},
+        status=200,
+    )
+
+
+# Deletes the account of the logged in user
+@require_POST
+@role_required("GUEST")
+def delete_account_view(request):
+    if over_limit(request, scope="login"):
+        return JsonResponse(
+            {"error": "Too many attempts. Try again in a few minutes."},
+            status=429,
+        )
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({"error": "Invalid request."}, status=400)
+
+    if not isinstance(data, dict):
+        return JsonResponse({"error": "Invalid request."}, status=400)
+
+    password = data.get("password")
+    if not isinstance(password, str) or not password:
+        return JsonResponse({"error": "Password is required."}, status=400)
+
+    if not request.user.check_password(password):
+        log_event(request, "ACCOUNT_DELETE_FAILED", user=request.user, details="wrong password")
+        return JsonResponse({"error": "Incorrect password."}, status=401)
+
+    try:
+        account = pseudonymize_account(request.user.pk)
+    except AccountError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+
+    log_event(request, "ACCOUNT_DELETED", user=account)
+    logout(request)
+    return JsonResponse({"message": "Your account has been deleted."}, status=200)
+
+
+# View and update the profile of the logged in user
+@require_http_methods(["GET", "POST"])
+@role_required("GUEST", "EMPLOYEE", "ADMIN")
+def profile_view(request):
+    user = request.user
+
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return JsonResponse({"error": "Invalid request."}, status=400)
+
+        if not isinstance(data, dict):
+            return JsonResponse({"error": "Invalid request."}, status=400)
+
+        try:
+            changed = []
+            if "full_name" in data:
+                user.full_name = encrypt(clean_full_name(data["full_name"]))
+                changed.append("full_name")
+            if "phone" in data:
+                user.phone = encrypt(clean_phone(data["phone"]))
+                changed.append("phone")
+        except ProfileError as exc:
+            return JsonResponse({"error": str(exc)}, status=400)
+
+        if changed:
+            user.save(update_fields=changed)
+            log_event(request, "PROFILE_UPDATED", user=user, details="fields=" + ",".join(changed))
+
+    return JsonResponse(
+        {
+            "email": user.email,
+            "full_name": decrypt(user.full_name),
+            "phone": decrypt(user.phone),
+        },
         status=200,
     )

@@ -30,11 +30,6 @@ services:
     networks:
       - backend
       - frontend
-    # No "ports:" -- the backend will only be reachable through Caddy.
-    # For testing before Caddy is set up, can temporarily add:
-    #   ports:
-    #     - "127.0.0.1:8000:8000"
-    # Remove loopback IP afterward.
 
   web:
     build:
@@ -51,6 +46,24 @@ services:
     networks:
       - frontend
 
+  backup:
+    build:
+      context: .
+      dockerfile: src/backup/Dockerfile
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_PUBLIC_KEY: ${BACKUP_PUBLIC_KEY:?Set BACKUP_PUBLIC_KEY in .env}
+    volumes:
+      - backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+
 networks:
   backend:
     internal: true
@@ -59,3 +72,4 @@ networks:
 volumes:
   pgdata:
   caddy_data:
+  backups:

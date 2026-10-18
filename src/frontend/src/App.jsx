@@ -4,6 +4,8 @@ import Register from "./Register.jsx";
 import { apiPost } from "./api.js";
 import { useEffect } from "react";
 import GalleryMap from "./GalleryMap.jsx";
+import DeleteAccount from "./DeleteAccount.jsx";
+import Profile from "./Profile.jsx";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -29,17 +31,23 @@ export default function App() {
     setView("login");
   }
 
+  //Sign-in page, displaying diufferent gallery map based on user role
   if (user) {
     return (
       <main>
         <h1>Welcome</h1>
         <p>Signed in as {user.email} ({user.role}).</p>
         <button type="button" onClick={logout}>Sign out</button>
+        <Profile />
         <GalleryMap role={user.role} />
+        {user.role === "GUEST" && (
+          <DeleteAccount onDeleted={() => { setUser(null); setView("login"); }} />
+        )}
       </main>
     );
   }
 
+  //Login page for users (the default view)
   return (
     <main>
       {view === "login" ? <Login onLoggedIn={setUser} /> : <Register />}

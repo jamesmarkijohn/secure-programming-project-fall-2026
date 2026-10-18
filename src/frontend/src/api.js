@@ -3,6 +3,7 @@ function getCookie(name) {
   return match ? decodeURIComponent(match[1]) : "";
 }
 
+//Function to make a POST request to the API with CSRF protection
 export async function apiPost(path, body) {
   await fetch("/api/auth/csrf/", { credentials: "same-origin" });
   const response = await fetch(path, {

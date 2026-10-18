@@ -1,9 +1,7 @@
 from django.db import transaction
-
 from accounts.crypto import encrypt
 from accounts.models import SYSTEM_ACCOUNT_EMAIL, Account, Role
 from audit.models import SecurityLog
-
 from .models import AdjacentRoom, GalleryRoom, MovementEvent
 
 
@@ -11,11 +9,14 @@ class MovementError(Exception):
     """Invalid state error."""
 
 
+# Check if two rooms are adjacent based on their IDs
 def rooms_are_adjacent(room_id_1, room_id_2):
     low, high = sorted((room_id_1, room_id_2))
     return AdjacentRoom.objects.filter(room_a_id=low, room_b_id=high).exists()
 
 
+# Record a movement event for a person moving to a new room, ensuring all constraints are met
+# This is how state validation is performed for movement events
 def record_move(person_id, end_room_id, recorded_by):
     with transaction.atomic():
         try:
@@ -43,6 +44,7 @@ def record_move(person_id, end_room_id, recorded_by):
         person.room = end_room
         person.save(update_fields=["room"])
 
+        # Log a security event if a guest enters a restricted room
         if end_room.is_restricted and person.role == Role.GUEST:
             SecurityLog.objects.create(
                 user=person,
