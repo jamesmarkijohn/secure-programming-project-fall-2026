@@ -21,6 +21,18 @@ from audit.ratelimit import over_limit
 # THis mitigates SQL injection attacks, as the ORM automatically escapes user input
 
 
+# One message for every failed sign-in
+GENERIC_LOGIN_ERROR = (
+    "Invalid email or password. After repeated failed attempts, "
+    "sign-in is restricted for a few minutes."
+)
+
+
+# Equalize the timing of password checks
+def _equalize_timing(password):
+    Account().set_password(password)
+
+
 # Checks if the user is logged in and has the right role
 def role_required(*allowed_roles):
     def decorator(view_func):
@@ -137,20 +149,16 @@ def login_view(request):
     user = Account.objects.filter(email=email.lower()).first()
 
     if user is None or not user.is_active:
+        _equalize_timing(password)
         log_event(request, "LOGIN_FAILURE", details=f"unknown email={email.lower()[:254]}")
-        return JsonResponse(
-            {"error": "Invalid email or password."},
-            status=401,
-        )
+        return JsonResponse({"error": GENERIC_LOGIN_ERROR}, status=401)
 
     # Check if the account is locked
     if user.locked_until is not None:
         if timezone.now() < user.locked_until:
             log_event(request, "LOGIN_BLOCKED_LOCKED", user=user)
-            return JsonResponse(
-                {"error": "Account temporarily locked. Try again later."},
-                status=403,
-            )
+            _equalize_timing(password)
+            return JsonResponse({"error": GENERIC_LOGIN_ERROR}, status=401)
 
         # Reset the lock after the lock time ends
         user.locked_until = None
@@ -172,23 +180,12 @@ def login_view(request):
             )
             log_event(request, "ACCOUNT_LOCKED", user=user)
 
-            return JsonResponse(
-                {
-                    "error": (
-                        "Account temporarily locked. "
-                        "Try again later."
-                    )
-                },
-                status=403,
-            )
+            return JsonResponse({"error": GENERIC_LOGIN_ERROR}, status=401)
         
         log_event(request, "LOGIN_FAILURE", user=user, details="wrong password")
         user.save(update_fields=["failed_login_attempts"])
 
-        return JsonResponse(
-            {"error": "Invalid email or password."},
-            status=401,
-        )
+        return JsonResponse({"error": GENERIC_LOGIN_ERROR}, status=401)
 
     # Reset failed attempts after the correct password
     if user.failed_login_attempts != 0 or user.locked_until is not None:
