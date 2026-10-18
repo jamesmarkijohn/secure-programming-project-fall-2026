@@ -22,6 +22,12 @@ def env(name, default=None):
 
 
 # Security settings
+    # ALLOWED_HOSTS is set to localhost by default so that the app can run in dev environment without requiring any additional configuration
+    # SECURE_PROXY_SSL_HEADER is set to ensure that Django knows when it's being accessed via HTTPS, even if it's behind a reverse proxy like Caddy
+    # SESSION_COOKIE_SECURE, SESSION_COOKIE_HTTPONLY, and SESSION_COOKIE_SAMESITE are set to enhance the security of session cookies
+    # SESSION_SAVE_EVERY_REQUEST is set to True to ensure that the session is saved to the database on every request
+    # CSRF_COOKIE_SAMESITE is set to "Strict" to prevent the CSRF cookie from being sent in cross-site requests, which helps mitigate CSRF attacks
+    # CSRF_COOKIE_SECURE is set to True to ensure that the CSRF cookie is only sent over HTTPS connections
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DJANGO_DEBUG", "0") == "1"
 ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS", "localhost").split(",")
@@ -58,9 +64,9 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
-TEMPLATES = []  # JSON API only; React renders the pages
+TEMPLATES = []
 
-# Database settings
+# Database settings, credentials pulled from .env
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -76,15 +82,13 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Authentication
 AUTH_USER_MODEL = "accounts.Account"
 
-# Argon2id first: used for all new hashes. PBKDF2 listed only so Django
-# could still verify (then upgrade) any older hash it encounters.
+# Argon2id will be used for all new passwords, and any existing PBKDF2 hashes will be upgraded to Argon2id on login
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.Argon2PasswordHasher",
     "django.contrib.auth.hashers.PBKDF2PasswordHasher",
 ]
 
-# NIST SP 800-63B: minimum 8 characters when the password is one factor of MFA,
-# no composition rules, screening against common passwords.
+# NIST SP 800-63B: minimum 8 characters when the password is one factor of MFA, no composition rules, screening against common passwords
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
      "OPTIONS": {"min_length": 8}},

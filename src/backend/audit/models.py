@@ -3,12 +3,8 @@ from django.db import models
 from django.db.models.functions import Now
 
 
+# SecurityLog model to store security-related events in the database
 class SecurityLog(models.Model):
-    """Append-only: a database trigger rejects UPDATE, DELETE, and TRUNCATE.
-
-    Events with no associated user are attributed to the system account.
-    """
-
     log_id = models.AutoField(primary_key=True)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

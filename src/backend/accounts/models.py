@@ -15,6 +15,9 @@ class Role(models.TextChoices):
     ADMIN = "ADMIN", "Administrator"
 
 
+# AccountManager is responsible for creating accounts in a consistent manner
+# Ensures that necessary fields are set and that the email is normalized and lowercased
+# Also generates a TOTP secret for two-factor authentication and sets the starting location of the account to the "Outside" room
 class AccountManager(BaseUserManager):
     """The only way to create accounts, so every account is created
     the same way: sanitized email, hashed password, TOTP secret, and
@@ -37,6 +40,8 @@ class AccountManager(BaseUserManager):
         return account
 
 
+# The Account model represents a user account in the system
+# It includes fields for email, full name, phone number, role, room, TOTP secret for MFA, etc.
 class Account(AbstractBaseUser):
     user_id = models.AutoField(primary_key=True)
     email = models.EmailField(max_length=254, unique=True)
@@ -62,6 +67,7 @@ class Account(AbstractBaseUser):
     EMAIL_FIELD = "email"
     REQUIRED_FIELDS = []
 
+    # Defines the database table name and constraints for the Account model
     class Meta:
         db_table = "accounts"
         constraints = [

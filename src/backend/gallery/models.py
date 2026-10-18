@@ -4,9 +4,8 @@ from django.db.models import F, Q
 from django.db.models.functions import Now
 
 
+# Models for the gallery app, representing rooms, adjacency, and movement events
 class GalleryRoom(models.Model):
-    """Matches the Gallery Rooms entity. Includes the special Outside room."""
-
     room_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=50, unique=True)
     is_restricted = models.BooleanField(default=False)
@@ -18,14 +17,8 @@ class GalleryRoom(models.Model):
         return self.name
 
 
+# Junction table for adjacent rooms, ensuring that each connection is stored only once
 class AdjacentRoom(models.Model):
-    """Junction table.
-
-    Each connection is stored once, with the smaller room_id in room_a.
-    Code that inserts rows must order the pair; code that checks adjacency
-    must order the pair the same way before looking it up.
-    """
-
     pk = models.CompositePrimaryKey("room_a", "room_b")
     room_a = models.ForeignKey(
         GalleryRoom, on_delete=models.CASCADE, db_column="room_a", related_name="+"
@@ -43,14 +36,8 @@ class AdjacentRoom(models.Model):
         ]
 
 
+# Model for movement events, capturing the transition of a person from one room to another
 class MovementEvent(models.Model):
-    """Matches Movement entity.
-
-    Entering the gallery is Outside -> an entrance room; leaving is a
-    room -> Outside. Rules the database can't check (adjacency, start_room
-    matching the person's current room) are enforced in application code.
-    """
-
     event_id = models.AutoField(primary_key=True)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -72,6 +59,7 @@ class MovementEvent(models.Model):
         related_name="+",
     )
 
+    # Meta class to define database table name, constraints, and indexes for the MovementEvent model
     class Meta:
         db_table = "movement_events"
         constraints = [

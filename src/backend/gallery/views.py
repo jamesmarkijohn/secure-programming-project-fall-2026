@@ -1,10 +1,7 @@
 import json
-
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
-
 from accounts.views import role_required
-
 from .services import MovementError, record_move
 from accounts.models import OUTSIDE_ROOM_NAME, SYSTEM_ACCOUNT_EMAIL, Account
 from .models import GalleryRoom
@@ -13,6 +10,7 @@ def _valid_id(value):
     return isinstance(value, int) and not isinstance(value, bool) and value > 0
 
 
+# Views for the gallery app, handling movement recording and occupancy information
 @require_POST
 @role_required("EMPLOYEE", "ADMIN")
 def record_move_view(request):
@@ -46,12 +44,14 @@ def record_move_view(request):
     )
 
 
+# Endpoint for users to retrieve their current location (room name)
 @require_GET
 @role_required("GUEST", "EMPLOYEE", "ADMIN")
 def my_location_view(request):
     return JsonResponse({"room": request.user.room.name}, status=200)
 
 
+# Endpoint for employees and admins to retrieve occupancy information for all rooms
 @require_GET
 @role_required("EMPLOYEE", "ADMIN")
 def occupancy_view(request):

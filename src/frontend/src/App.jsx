@@ -29,6 +29,7 @@ export default function App() {
     setView("login");
   }
 
+  //Sign-in page, displaying diufferent gallery map based on user role
   if (user) {
     return (
       <main>
@@ -40,6 +41,7 @@ export default function App() {
     );
   }
 
+  //Login page for users (the default view)
   return (
     <main>
       {view === "login" ? <Login onLoggedIn={setUser} /> : <Register />}

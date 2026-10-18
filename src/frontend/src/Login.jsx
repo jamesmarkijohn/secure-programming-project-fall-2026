@@ -2,6 +2,7 @@ import { useState } from "react";
 import { apiPost } from "./api.js";
 import { QRCodeSVG } from "qrcode.react";
 
+//Login component, handling user authentication with mandatory TOTP MFA
 export default function Login({ onLoggedIn }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -54,6 +55,7 @@ export default function Login({ onLoggedIn }) {
     }
   }
 
+  //MFA setup, with QR code and manual key entry for first-time users
   if (stage === "mfa") {
     return (
       <section>
@@ -79,6 +81,8 @@ export default function Login({ onLoggedIn }) {
     );
   }
 
+  //Login form for users, with email and password fields
+  //Input validation is performed server-side
   return (
     <section>
       <h1>Sign in</h1>

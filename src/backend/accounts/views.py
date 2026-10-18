@@ -1,22 +1,23 @@
 import json
 from datetime import timedelta
 from functools import wraps
-
 import pyotp
-
 from django.contrib.auth import login, logout
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
-
 from .crypto import decrypt
 from .models import Account
-
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import IntegrityError
+from audit.utils import log_event
+
+
+# The calls in this file go through Django ORM rather than through raw SQL queries
+# THis mitigates SQL injection attacks, as the ORM automatically escapes user input
 
 
 # Checks if the user is logged in and has the right role
@@ -53,6 +54,7 @@ def csrf_view(request):
     )
 
 
+# Returns the email and role of the logged in user
 @require_GET
 def me_view(request):
     if not request.user.is_authenticated:
@@ -64,6 +66,7 @@ def me_view(request):
     )
 
 
+# Registers a new user account
 @require_POST
 def register_view(request):
     try:
@@ -125,6 +128,7 @@ def login_view(request):
     user = Account.objects.filter(email=email.lower()).first()
 
     if user is None or not user.is_active:
+        log_event(request, "LOGIN_FAILURE", details=f"unknown email={email.lower()[:254]}")
         return JsonResponse(
             {"error": "Invalid email or password."},
             status=401,
@@ -133,6 +137,7 @@ def login_view(request):
     # Check if the account is locked
     if user.locked_until is not None:
         if timezone.now() < user.locked_until:
+            log_event(request, "LOGIN_BLOCKED_LOCKED", user=user)
             return JsonResponse(
                 {"error": "Account temporarily locked. Try again later."},
                 status=403,
@@ -156,6 +161,7 @@ def login_view(request):
             user.save(
                 update_fields=["failed_login_attempts", "locked_until"]
             )
+            log_event(request, "ACCOUNT_LOCKED", user=user)
 
             return JsonResponse(
                 {
@@ -166,7 +172,8 @@ def login_view(request):
                 },
                 status=403,
             )
-
+        
+        log_event(request, "LOGIN_FAILURE", user=user, details="wrong password")
         user.save(update_fields=["failed_login_attempts"])
 
         return JsonResponse(
@@ -242,12 +249,14 @@ def verify_mfa_view(request):
     totp = pyotp.TOTP(secret)
 
     if not totp.verify(str(code), valid_window=1):
+        log_event(request, "MFA_FAILURE", user=user)
         failed_mfa_attempts = (
             request.session.get("failed_mfa_attempts", 0) + 1
         )
 
         # Make the user log in again after 5 wrong MFA codes
         if failed_mfa_attempts >= 5:
+            log_event(request, "MFA_ATTEMPTS_EXCEEDED", user=user)
             request.session.flush()
 
             return JsonResponse(
@@ -271,7 +280,9 @@ def verify_mfa_view(request):
     if not user.mfa_enrolled:
         user.mfa_enrolled = True
         user.save(update_fields=["mfa_enrolled"])
+        log_event(request, "MFA_ENROLLED", user=user)
     login(request, user)
+    log_event(request, "LOGIN_SUCCESS", user=user)
 
     # Change the temporary session to the normal 8 hour session
     request.session.set_expiry(8 * 60 * 60)
@@ -290,6 +301,7 @@ def verify_mfa_view(request):
     )
 
 
+# Logs out the user
 @require_POST
 def logout_view(request):
     # Only logged in users can log out
@@ -299,6 +311,7 @@ def logout_view(request):
             status=401,
         )
 
+    log_event(request, "LOGOUT", user=request.user)
     logout(request)
 
     return JsonResponse(

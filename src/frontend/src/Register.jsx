@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { apiPost } from "./api.js";
 
+//Account registration component, requiring username & password
 export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,6 +23,7 @@ export default function Register() {
     }
   }
 
+  //Render the registration form with email and password fields
   return (
     <section>
       <h1>Art Gallery</h1>

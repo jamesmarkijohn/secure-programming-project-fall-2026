@@ -1,6 +1,8 @@
--- Seed data for gallery layout (no accounts/credetials).
--- 'Outside' indicates the outside world (entrances/exits).
--- If is_restricted is TRUE, the room is staff-only.
+-- Seed data for gallery layout
+-- 'Outside' indicates the outside world
+-- If is_restricted is TRUE, the room is staff-only
+-- is_restricted is used by movement event logging
+-- If a user tries to move into a restricted room, the event is logged to the security log
 
 INSERT INTO gallery_rooms (name, is_restricted) VALUES
     ('Outside',         FALSE),

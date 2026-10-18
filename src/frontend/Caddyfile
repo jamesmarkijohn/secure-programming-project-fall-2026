@@ -14,6 +14,19 @@ localhost {
 		file_server
 	}
 
+	# Security headers to protect against common web vulnerabilities (each described below)
+		# default-src 'self' restricts content to the same origin
+		# script-src 'self' restricts scripts to the same origin
+		# style-src 'self' restricts styles to the same origin
+		# img-src 'self' data: allows images from the same origin and data URIs
+		# connect-src 'self' restricts connections to the same origin
+		# object-src 'none' disallows plugins and other objects
+		# base-uri 'self' restricts the base URI to the same origin
+		# form-action 'self' restricts form submissions to the same origin
+		# frame-ancestors 'none' disallows embedding the site in frames or iframes
+		# X-Content-Type-Options "nosniff" prevents MIME type sniffing
+		# Referrer-Policy "same-origin" restricts the Referer header to the same origin
+		# -Server removes the Server header to prevent information disclosure
 	header {
 		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 		X-Content-Type-Options "nosniff"
