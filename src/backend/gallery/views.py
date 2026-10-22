@@ -56,13 +56,12 @@ def my_location_view(request):
 @role_required("EMPLOYEE", "ADMIN")
 def occupancy_view(request):
     rooms = {
-        room.name: []
-        for room in GalleryRoom.objects.exclude(name=OUTSIDE_ROOM_NAME).order_by("name")
-    }
+    room.name: []
+    for room in GalleryRoom.objects.order_by("name")
+}
     people = (
         Account.objects.filter(deleted__isnull=True)
         .exclude(email=SYSTEM_ACCOUNT_EMAIL)
-        .exclude(room__name=OUTSIDE_ROOM_NAME)
         .select_related("room")
         .order_by("email")
     )
@@ -71,3 +70,28 @@ def occupancy_view(request):
             {"user_id": person.pk, "email": person.email, "role": person.role}
         )
     return JsonResponse({"rooms": rooms}, status=200)
+
+# Get movement history for employees and administrators
+@require_GET
+@role_required("EMPLOYEE", "ADMIN")
+def movement_history_view(request):
+    from .models import MovementEvent
+
+    events = MovementEvent.objects.select_related(
+        "user", "start_room", "end_room", "recorded_by"
+    ).order_by("-event_time")[:100]
+
+    results = []
+
+    for event in events:
+        results.append({
+            "event_id": event.event_id,
+            "user_id": event.user_id,
+            "email": event.user.email,
+            "start_room": event.start_room.name,
+            "end_room": event.end_room.name,
+            "event_time": event.event_time.isoformat(),
+            "recorded_by": event.recorded_by.email,
+        })
+
+    return JsonResponse({"events": results}, status=200)

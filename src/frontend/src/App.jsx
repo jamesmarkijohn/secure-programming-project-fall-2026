@@ -1,4 +1,5 @@
 import { useState } from "react";
+import "./App.css";
 import Login from "./Login.jsx";
 import Register from "./Register.jsx";
 import { apiPost } from "./api.js";
@@ -6,6 +7,10 @@ import { useEffect } from "react";
 import GalleryMap from "./GalleryMap.jsx";
 import DeleteAccount from "./DeleteAccount.jsx";
 import Profile from "./Profile.jsx";
+import MovementHistory from "./MovementHistory.jsx";
+import SecurityLogs from "./SecurityLogs.jsx";
+import AdminAccounts from "./AdminAccounts.jsx";
+import AdminCreateAccount from "./AdminCreateAccount.jsx";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -40,6 +45,18 @@ export default function App() {
         <button type="button" onClick={logout}>Sign out</button>
         <Profile />
         <GalleryMap role={user.role} />
+        {(user.role === "EMPLOYEE" || user.role === "ADMIN") && (
+  <MovementHistory />
+)}
+        {user.role === "ADMIN" && (
+  <SecurityLogs />
+)}
+{user.role === "ADMIN" && (
+  <AdminAccounts />
+)}
+{user.role === "ADMIN" && (
+  <AdminCreateAccount />
+)}
         {user.role === "GUEST" && (
           <DeleteAccount onDeleted={() => { setUser(null); setView("login"); }} />
         )}

@@ -182,3 +182,102 @@
     border-right-color: var(--border);
   }
 }
+/* Admin and Employee tables */
+
+main {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 24px;
+}
+
+main section {
+  margin: 28px 0;
+}
+
+main table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+  font-size: 14px;
+  text-align: left;
+}
+
+main th,
+main td {
+  padding: 12px;
+  border: 1px solid var(--border);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+main th {
+  background-color: #e9e9e9;
+  font-weight: 600;
+}
+
+main tbody tr:nth-child(even) {
+  background-color: #f0f0f0;
+}
+
+main tbody tr:hover {
+  background-color: #e8edf2;
+}
+
+@media (max-width: 768px) {
+  main {
+    padding: 12px;
+  }
+
+  main table {
+    font-size: 12px;
+  }
+
+  main th,
+  main td {
+    padding: 8px;
+  }
+}
+/* Admin account creation form */
+
+main form {
+  max-width: 450px;
+  margin: 20px auto;
+  text-align: left;
+}
+
+main form > div {
+  margin-bottom: 16px;
+}
+
+main form label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+main form input,
+main form select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #c8c8c8;
+  border-radius: 6px;
+  font-size: 15px;
+  background-color: white;
+  color: #111;
+}
+
+main form button {
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+main form button:hover {
+  background-color: #e9e9e9;
+}
+
+main form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

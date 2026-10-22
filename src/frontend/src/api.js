@@ -18,3 +18,13 @@ export async function apiPost(path, body) {
   const data = await response.json();
   return { ok: response.ok, data };
 }
+// Function to get data from the API
+export async function apiGet(path) {
+  const response = await fetch(path, {
+    method: "GET",
+    credentials: "same-origin",
+  });
+
+  const data = await response.json();
+  return { ok: response.ok, data };
+}
