@@ -428,3 +428,95 @@ def profile_view(request):
         },
         status=200,
     )
+
+# Allow administrators to view account information
+@require_GET
+@role_required("ADMIN")
+def admin_accounts_view(request):
+    accounts = (
+        Account.objects
+        .select_related("room")
+        .order_by("user_id")[:100]
+    )
+
+    results = []
+
+    for account in accounts:
+        results.append({
+            "user_id": account.user_id,
+            "email": account.email,
+            "role": account.role,
+            "room": account.room.name,
+            "created": account.created.isoformat(),
+            "is_active": account.is_active,
+            "mfa_enrolled": account.mfa_enrolled,
+        })
+
+    return JsonResponse({"accounts": results}, status=200)
+# Allow administrators to create Employee and Admin accounts
+@require_POST
+@role_required("ADMIN")
+def admin_create_account_view(request):
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({"error": "Invalid request."}, status=400)
+
+    if not isinstance(data, dict):
+        return JsonResponse({"error": "Invalid request."}, status=400)
+
+    email = data.get("email")
+    password = data.get("password")
+    role = data.get("role")
+
+    if not isinstance(email, str) or not isinstance(password, str):
+        return JsonResponse(
+            {"error": "Email and password are required."}, status=400
+        )
+
+    if role not in ("EMPLOYEE", "ADMIN"):
+        return JsonResponse(
+            {"error": "Role must be EMPLOYEE or ADMIN."}, status=400
+        )
+
+    email = email.strip().lower()
+
+    try:
+        if len(email) > 254:
+            raise ValidationError("Email too long.")
+        validate_email(email)
+        validate_password(password, user=Account(email=email))
+    except ValidationError as exc:
+        return JsonResponse(
+            {"error": " ".join(exc.messages)}, status=400
+        )
+
+    try:
+        account = Account.objects.create_user(
+            email=email,
+            password=password,
+            role=role,
+        )
+    except IntegrityError:
+        return JsonResponse(
+            {"error": "An account with that email already exists."},
+            status=400,
+        )
+
+    log_event(
+        request,
+        "PRIVILEGED_ACCOUNT_CREATED",
+        user=account,
+        details=f"Created by admin ID {request.user.pk}; role={role}",
+    )
+
+    return JsonResponse(
+        {
+            "message": "Account created. MFA enrollment required at first login.",
+            "user_id": account.user_id,
+            "email": account.email,
+            "role": account.role,
+            "mfa_enrolled": account.mfa_enrolled,
+        },
+        status=201,
+    )
