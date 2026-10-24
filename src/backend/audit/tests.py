@@ -1,5 +1,5 @@
 
-from django.test import TestCase
+from django.test import TestCase, tag
 from django.urls import reverse
 
 from accounts.crypto import encrypt
@@ -33,21 +33,25 @@ class SecurityLogTests(TestCase):
 
         self.url = reverse("security_logs")
 
+    @tag("security")
     def test_guest_cannot_view_security_logs(self):
         self.client.force_login(self.guest)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 403)
 
+    @tag("security")
     def test_employee_cannot_view_security_logs(self):
         self.client.force_login(self.employee)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 403)
 
+    @tag("functional")
     def test_admin_can_view_security_logs(self):
         self.client.force_login(self.admin)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
 
+    @tag("functional")
     def test_security_log_returns_decrypted_description(self):
         log = SecurityLog.objects.create(
             user=self.employee,

@@ -1,5 +1,5 @@
 
-from django.test import TestCase
+from django.test import TestCase, tag
 from django.urls import reverse
 
 from accounts.models import Account, Role
@@ -37,21 +37,25 @@ class MovementHistoryTests(TestCase):
 
         self.url = reverse("movement_history")
 
+    @tag("security")
     def test_guest_cannot_view_movement_history(self):
         self.client.force_login(self.guest)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 403)
 
+    @tag("functional")
     def test_employee_can_view_movement_history(self):
         self.client.force_login(self.employee)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
 
+    @tag("functional")
     def test_admin_can_view_movement_history(self):
         self.client.force_login(self.admin)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
 
+    @tag("functional")
     def test_movement_history_returns_correct_data(self):
         event = MovementEvent.objects.create(
             user=self.guest,
@@ -107,21 +111,25 @@ class GalleryOccupancyTests(TestCase):
 
         self.url = reverse("occupancy")
 
+    @tag("security")
     def test_guest_cannot_view_occupancy(self):
         self.client.force_login(self.guest)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 403)
 
+    @tag("functional")
     def test_employee_can_view_occupancy(self):
         self.client.force_login(self.employee)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
 
+    @tag("functional")
     def test_admin_can_view_occupancy(self):
         self.client.force_login(self.admin)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
 
+    @tag("functional")
     def test_occupancy_shows_correct_rooms(self):
         self.guest.room = self.lobby
         self.guest.save(update_fields=["room"])
