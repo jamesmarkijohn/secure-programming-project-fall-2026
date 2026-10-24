@@ -1,71 +1,131 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiGet } from "./api.js";
+import AccountEditor from "./AccountEditor.jsx";
 
-export default function AdminAccounts() {
-  const [accounts, setAccounts] = useState([]);
+export default function AdminAccounts({ currentEmail }) {
+  const [filters, setFilters] = useState({ role: "", email: "", includeDeleted: false });
+  const [applied, setApplied] = useState(filters);
+  const [page, setPage] = useState(1);
+  const [result, setResult] = useState({ accounts: [], total: 0, page_size: 25 });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [selected, setSelected] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(page) });
+    if (applied.role) params.set("role", applied.role);
+    if (applied.email) params.set("email", applied.email);
+    if (applied.includeDeleted) params.set("include_deleted", "1");
+    try {
+      const { ok, data } = await apiGet(`/api/admin/accounts/?${params}`);
+      if (ok) {
+        setResult(data);
+        setMessage("");
+      } else {
+        setMessage(data.error || "Could not load accounts.");
+      }
+    } catch {
+      setMessage("Could not reach the server.");
+    } finally {
+      setLoading(false);
+    }
+  }, [applied, page]);
 
   useEffect(() => {
-    async function loadAccounts() {
-      try {
-        const response = await apiGet("/api/auth/admin/accounts/");
+    load();
+  }, [load]);
 
-        if (!response.ok) {
-          setError("Could not load accounts.");
-          return;
-        }
+  function search(event) {
+    event.preventDefault();
+    setPage(1);
+    setApplied({ ...filters });
+  }
 
-        setAccounts(response.data.accounts);
-      } catch {
-        setError("Something went wrong while loading accounts.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadAccounts();
-  }, []);
+  const lastPage = Math.max(1, Math.ceil(result.total / result.page_size));
 
   return (
     <section>
-      <h2>Account Database</h2>
+      <h2>Accounts</h2>
 
-      {loading && <p>Loading accounts...</p>}
-      {error && <p role="alert">{error}</p>}
+      <form onSubmit={search}>
+        <label>
+          Role
+          <select value={filters.role} onChange={(e) => setFilters({ ...filters, role: e.target.value })}>
+            <option value="">Any role</option>
+            <option value="GUEST">Guest</option>
+            <option value="EMPLOYEE">Employee</option>
+            <option value="ADMIN">Admin</option>
+          </select>
+        </label>
+        <label>
+          Email contains
+          <input type="text" maxLength={254} value={filters.email}
+            onChange={(e) => setFilters({ ...filters, email: e.target.value })} />
+        </label>
+        <label>
+          <input type="checkbox" checked={filters.includeDeleted}
+            onChange={(e) => setFilters({ ...filters, includeDeleted: e.target.checked })} />
+          Include deleted accounts
+        </label>
+        <button type="submit" disabled={loading}>Search</button>
+      </form>
 
-      {!loading && !error && accounts.length === 0 && (
-        <p>No accounts found.</p>
+      {message && <p role="status">{message}</p>}
+      {!loading && result.accounts.length === 0 && !message && <p>No matching accounts.</p>}
+
+      {result.accounts.length > 0 && (
+        <>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Current room</th>
+                <th>Created</th>
+                <th>Status</th>
+                <th>MFA</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.accounts.map((account) => (
+                <tr key={account.user_id}>
+                  <td>{account.user_id}</td>
+                  <td>{account.email}</td>
+                  <td>{account.role}</td>
+                  <td>{account.room}</td>
+                  <td>{new Date(account.created).toLocaleString()}</td>
+                  <td>{account.is_active ? "Active" : "Deleted"}</td>
+                  <td>{account.mfa_enrolled ? "Set up" : "Not set up"}</td>
+                  <td>
+                    <button type="button" onClick={() => setSelected(account.user_id)}>Manage</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p>
+            <button type="button" onClick={() => setPage(page - 1)} disabled={loading || page <= 1}>
+              Previous
+            </button>{" "}
+            Page {page} of {lastPage} ({result.total} accounts){" "}
+            <button type="button" onClick={() => setPage(page + 1)} disabled={loading || page >= lastPage}>
+              Next
+            </button>
+          </p>
+        </>
       )}
 
-      {!loading && !error && accounts.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Account ID</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Current Room</th>
-              <th>Created</th>
-              <th>Status</th>
-              <th>MFA</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {accounts.map((account) => (
-              <tr key={account.user_id}>
-                <td>{account.user_id}</td>
-                <td>{account.email}</td>
-                <td>{account.role}</td>
-                <td>{account.room}</td>
-                <td>{new Date(account.created).toLocaleString()}</td>
-                <td>{account.is_active ? "Active" : "Deleted"}</td>
-                <td>{account.mfa_enrolled ? "Enabled" : "Not enrolled"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {selected && (
+        <AccountEditor
+          key={selected}
+          userId={selected}
+          isSelf={result.accounts.some((a) => a.user_id === selected && a.email === currentEmail)}
+          onChanged={load}
+          onClose={() => setSelected(null)}
+        />
       )}
     </section>
   );
