@@ -1,5 +1,5 @@
 
-from django.test import TestCase
+from django.test import TestCase, tag
 from django.urls import reverse
 
 from accounts.models import Account, Role
@@ -29,21 +29,25 @@ class AdminAccountSecurityTests(TestCase):
             role=Role.ADMIN,
         )
 
+    @tag("security")
     def test_guest_cannot_view_accounts(self):
         self.client.force_login(self.guest)
         response = self.client.get(reverse("admin_accounts"))
         self.assertEqual(response.status_code, 403)
 
+    @tag("security")
     def test_employee_cannot_view_accounts(self):
         self.client.force_login(self.employee)
         response = self.client.get(reverse("admin_accounts"))
         self.assertEqual(response.status_code, 403)
 
+    @tag("functional")
     def test_admin_can_view_accounts(self):
         self.client.force_login(self.admin)
         response = self.client.get(reverse("admin_accounts"))
         self.assertEqual(response.status_code, 200)
 
+    @tag("security")
     def test_account_query_does_not_expose_secrets(self):
         self.client.force_login(self.admin)
         response = self.client.get(reverse("admin_accounts"))
@@ -81,6 +85,7 @@ class AdminAccountCreationTests(TestCase):
 
         self.url = reverse("admin_create_account")
 
+    @tag("security")
     def test_guest_cannot_create_employee(self):
         self.client.force_login(self.guest)
         response = self.client.post(
@@ -97,6 +102,7 @@ class AdminAccountCreationTests(TestCase):
             Account.objects.filter(email="newemployee@example.com").exists()
         )
 
+    @tag("security")
     def test_employee_cannot_create_admin(self):
         self.client.force_login(self.employee)
         response = self.client.post(
@@ -113,6 +119,7 @@ class AdminAccountCreationTests(TestCase):
             Account.objects.filter(email="newadmin@example.com").exists()
         )
 
+    @tag("security")
     def test_admin_cannot_create_guest(self):
         self.client.force_login(self.admin)
         response = self.client.post(
@@ -126,6 +133,7 @@ class AdminAccountCreationTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    @tag("functional")
     def test_admin_can_create_employee(self):
         self.client.force_login(self.admin)
         response = self.client.post(

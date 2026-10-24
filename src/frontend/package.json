@@ -12,7 +12,8 @@
   "dependencies": {
     "qrcode.react": "^4.2.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-router": "8.5.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",

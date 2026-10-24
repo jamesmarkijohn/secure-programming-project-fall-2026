@@ -1,22 +1,27 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Navigate, NavLink, Route, Routes, useNavigate } from "react-router";
 import "./App.css";
 import Login from "./Login.jsx";
 import Register from "./Register.jsx";
 import { apiPost } from "./api.js";
-import { useEffect } from "react";
-import GalleryMap from "./GalleryMap.jsx";
-import DeleteAccount from "./DeleteAccount.jsx";
-import Profile from "./Profile.jsx";
-import MovementHistory from "./MovementHistory.jsx";
-import SecurityLogs from "./SecurityLogs.jsx";
-import AdminAccounts from "./AdminAccounts.jsx";
-import AdminCreateAccount from "./AdminCreateAccount.jsx";
+import HomePage from "./pages/HomePage.jsx";
+import StaffPage from "./pages/StaffPage.jsx";
+import AdminPage from "./pages/AdminPage.jsx";
+
+const STAFF_ROLES = ["EMPLOYEE", "ADMIN"];
+
+// Shows a page only to the listed roles, anyone else is sent home
+function RequireRole({ user, roles, children }) {
+  return roles.includes(user.role) ? children : <Navigate to="/" replace />;
+}
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState("login");
   const [checking, setChecking] = useState(true);
+  const navigate = useNavigate();
 
+  // On page load, ask the server whether this browser already has a session.
   useEffect(() => {
     fetch("/api/auth/me/", { credentials: "same-origin" })
       .then((response) => (response.ok ? response.json() : null))
@@ -26,51 +31,67 @@ export default function App() {
       .catch(() => {})
       .finally(() => setChecking(false));
   }, []);
+
   if (checking) return null;
+
+  function signedOut() {
+    setUser(null);
+    setView("login");
+    navigate("/", { replace: true });
+  }
 
   async function logout() {
     try {
       await apiPost("/api/auth/logout/", {});
-    } catch { }
-    setUser(null);
-    setView("login");
+    } catch {
+      // Even if the server can't be reached, clear the screen.
+    }
+    signedOut();
   }
 
-  //Sign-in page, displaying diufferent gallery map based on user role
-  if (user) {
+  if (!user) {
     return (
       <main>
-        <h1>Welcome</h1>
-        <p>Signed in as {user.email} ({user.role}).</p>
-        <button type="button" onClick={logout}>Sign out</button>
-        <Profile />
-        <GalleryMap role={user.role} />
-        {(user.role === "EMPLOYEE" || user.role === "ADMIN") && (
-  <MovementHistory />
-)}
-        {user.role === "ADMIN" && (
-  <SecurityLogs />
-)}
-{user.role === "ADMIN" && (
-  <AdminAccounts />
-)}
-{user.role === "ADMIN" && (
-  <AdminCreateAccount />
-)}
-        {user.role === "GUEST" && (
-          <DeleteAccount onDeleted={() => { setUser(null); setView("login"); }} />
-        )}
+        {view === "login" ? <Login onLoggedIn={setUser} /> : <Register />}
+        <button type="button" onClick={() => setView(view === "login" ? "register" : "login")}>
+          {view === "login" ? "Need an account? Create one" : "Have an account? Sign in"}
+        </button>
       </main>
     );
   }
 
-  //Login page for users (the default view)
   return (
     <main>
-      {view === "login" ? <Login onLoggedIn={setUser} /> : <Register />}
-      <button type="button" onClick={() => setView(view === "login" ? "register" : "login")}>
-        {view === "login" ? "Need an account? Create one" : "Have an account? Sign in"}
-      </button>
+      <header>
+        <nav aria-label="Main">
+          <NavLink to="/" end>Home</NavLink>
+          {STAFF_ROLES.includes(user.role) && <NavLink to="/staff">Staff</NavLink>}
+          {user.role === "ADMIN" && <NavLink to="/admin">Admin</NavLink>}
+        </nav>
+        <p>Signed in as {user.email} ({user.role}).</p>
+        <button type="button" onClick={logout}>Sign out</button>
+      </header>
+
+      <Routes>
+        <Route path="/" element={<HomePage user={user} onDeleted={signedOut} />} />
+        <Route
+          path="/staff"
+          element={
+            <RequireRole user={user} roles={STAFF_ROLES}>
+              <StaffPage user={user} />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <RequireRole user={user} roles={["ADMIN"]}>
+              <AdminPage user={user} />
+            </RequireRole>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </main>
   );
 }

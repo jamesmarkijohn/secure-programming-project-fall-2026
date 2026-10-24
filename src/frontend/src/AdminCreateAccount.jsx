@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { apiPost } from "./api.js";
 
-export default function AdminCreateAccount() {
+export default function AdminCreateAccount({ onCreated }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("EMPLOYEE");
@@ -18,7 +18,7 @@ export default function AdminCreateAccount() {
 
     try {
       const response = await apiPost(
-        "/api/auth/admin/accounts/create/",
+        "/api/admin/accounts/create/",
         { email, password, role }
       );
 
@@ -34,6 +34,7 @@ export default function AdminCreateAccount() {
       setEmail("");
       setPassword("");
       setRole("EMPLOYEE");
+      onCreated?.();
     } catch {
       setError("Something went wrong while creating the account.");
     } finally {
