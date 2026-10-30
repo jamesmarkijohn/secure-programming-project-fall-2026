@@ -38,7 +38,7 @@ export default function GalleryMap({ role }) {
 
   //Render the gallery map and occupancy information
   return (
-    <section>
+    <section className="gallery-map">
       <h2>Gallery map</h2>
       {error && <p role="status">{error}</p>}
       {current === "Outside" && <p>You are outside the gallery.</p>}
